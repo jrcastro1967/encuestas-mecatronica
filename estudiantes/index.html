@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encuesta Mecatrónica / Mechatronics Survey</title>
+<style>
+  :root { --azul:#1a4d7a; --azul-osc:#0d2e4d; --borde:#c9c9c9; --nota:#eef4fa; --txt:#222; --rojo:#a33; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; max-width:780px; margin:0 auto; padding:1.2rem 1rem 3rem; color:var(--txt); background:#fff; line-height:1.5; font-size:17px; }
+  h1 { color:var(--azul-osc); font-size:1.5rem; margin:.4rem 0 .2rem; }
+  h2 { color:var(--azul-osc); font-size:1.1rem; margin:0 0 .4rem; }
+  .sub { color:#555; margin:0 0 1rem; }
+  .nota { background:var(--nota); border-left:4px solid var(--azul); padding:.8rem 1rem; margin:1rem 0; font-size:.95rem; }
+  .nota h2 { font-size:1rem; }
+  .nota p { margin:.2rem 0; }
+  fieldset { border:1px solid var(--borde); border-radius:8px; padding:.8rem 1rem 1rem; margin:1rem 0; min-width:0; }
+  legend { font-weight:600; padding:0 .4rem; max-width:100%; }
+  .opc { font-weight:400; font-size:.85rem; color:#666; }
+  .escala { display:grid; grid-template-columns:repeat(5,1fr); gap:.5rem; margin-top:.5rem; }
+  .escala label { display:flex; flex-direction:column; align-items:center; text-align:center; gap:.25rem; padding:.45rem .3rem; border:1px solid var(--borde); border-radius:6px; cursor:pointer; font-size:.8rem; line-height:1.2; }
+  .escala label b { font-size:1.05rem; }
+  .escala input { width:1.15rem; height:1.15rem; }
+  @media (max-width:560px){ .escala { grid-template-columns:1fr; } .escala label { flex-direction:row; text-align:left; gap:.6rem; font-size:.95rem; } }
+  .idioma { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; border:1px solid var(--borde); border-radius:8px; padding:.5rem .9rem; margin:0 0 .8rem; }
+  .idioma legend { font-size:.9rem; }
+  .idioma label { display:flex; align-items:center; gap:.35rem; padding:.3rem .6rem; border:1px solid var(--borde); border-radius:6px; cursor:pointer; }
+  input:focus-visible, button:focus-visible, a.boton:focus-visible { outline:3px solid var(--azul); outline-offset:2px; }
+  button, a.boton { background:var(--azul); color:#fff; border:0; padding:.7rem 1.3rem; font-size:1rem; border-radius:6px; cursor:pointer; display:inline-block; text-decoration:none; margin:.4rem .6rem .4rem 0; }
+  button:hover, a.boton:hover { background:var(--azul-osc); }
+  .tabla { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; margin-top:.6rem; }
+  th, td { border:1px solid var(--borde); padding:.4rem .6rem; text-align:left; }
+  th { background:var(--nota); }
+  #resultado { border:2px solid var(--azul); border-radius:8px; padding:1rem 1.1rem; margin-top:1.2rem; }
+  #resultado[hidden] { display:none; }
+  .prom { font-size:1.6rem; font-weight:700; color:var(--azul-osc); }
+  .insuf { color:var(--rojo); font-weight:600; }
+  footer { margin-top:2rem; font-size:.8rem; color:#777; border-top:1px solid var(--borde); padding-top:.8rem; }
+</style>
+</head>
+<body>
+<fieldset class="idioma" id="selector-idioma">
+  <legend id="t-idioma"></legend>
+  <label><input type="radio" name="idioma" value="es" checked> Español</label>
+  <label><input type="radio" name="idioma" value="en"> English</label>
+</fieldset>
+
+<h1 id="t-titulo"></h1>
+<p class="sub" id="t-sub"></p>
+
+<div class="nota">
+  <h2 id="t-aviso-titulo"></h2>
+  <p id="t-aviso"></p>
+  <h2 id="t-reglas-titulo" style="margin-top:.7rem"></h2>
+  <p id="t-reglas"></p>
+</div>
+
+<form id="encuesta" autocomplete="off"></form>
+<button type="button" id="btnCalcular"></button>
+
+<section id="resultado" hidden aria-live="polite">
+  <h2 id="t-resultado"></h2>
+  <div class="tabla"><table>
+    <thead><tr><th id="th-preg"></th><th id="th-orig"></th><th id="th-punt"></th></tr></thead>
+    <tbody id="filas"></tbody>
+  </table></div>
+  <p><span id="t-respondidas"></span>: <strong id="n-resp"></strong></p>
+  <p id="linea-prom"></p>
+  <h2 id="t-exportar" style="margin-top:1.2rem"></h2>
+  <p id="t-exportar-txt"></p>
+  <button type="button" id="btnDescargar"></button>
+  <a href="#" class="boton" id="btnEnviar"></a>
+</section>
+
+<footer><span id="t-pie"></span> · <span id="t-pie2"></span></footer>
+
+<script>
+(function () {
+  "use strict";
+  var CFG = {"clave":"estudiantes","version_reglas":"1.0","min_respuestas":8,"n_items":10,"invertidos":[10],"correo_destino":"jrcastro@utpl.edu.ec","escala":{"es":["Totalmente en desacuerdo","En desacuerdo","Ni de acuerdo ni en desacuerdo","De acuerdo","Totalmente de acuerdo"],"en":["Strongly disagree","Disagree","Neither agree nor disagree","Agree","Strongly agree"]},"ui":{"es":{"idioma":"Idioma","aviso_titulo":"Uso de sus respuestas","aviso":"Esta información se usará únicamente para orientar el diseño de una propuesta académica de Ingeniería en Mecatrónica. El formulario es anónimo: no se pide nombre, correo, cédula ni el nombre de su empresa o institución. Las diez preguntas son opcionales: puede dejar alguna en blanco, y un blanco nunca se cuenta como cero. Este es un ejercicio de práctica de un curso: no valida un instrumento psicométrico establecido.","reglas_titulo":"Cómo se calcula su resultado","reglas":"Escala de 1 a 5. La pregunta 10 se puntúa al revés (6 menos su respuesta). El promedio se calcula solo si respondió al menos 8 de las 10 preguntas; con menos, se indica «respuestas insuficientes».","opcional":"(opcional)","ver":"Ver mi resultado","resultado":"Su resultado","pregunta":"Pregunta","invertida":"invertida","orig":"Respuesta original","punt":"Puntuación (transformada)","sin_resp":"— sin responder —","respondidas":"Preguntas respondidas","de":"de","promedio":"Promedio","insuficiente":"Respuestas insuficientes","insuficiente_det":"se necesitan al menos 8 de las 10 preguntas respondidas para calcular un promedio.","exportar":"Exportar","exportar_txt":"Puede descargar sus dos archivos, o enviarlos directamente por correo a quien realiza este estudio.","descargar":"Descargar mis archivos (CSV)","enviar":"Enviar mis resultados por correo","asunto":"Resultados encuesta","cuerpo_titulo":"Resultados de la encuesta","orig_titulo":"Respuestas originales","punt_titulo":"Puntuaciones (pregunta 10 invertida = 6 - respuesta)","en_blanco":"(en blanco)","pie":"Reglas de puntuación versión","pie2":"Curso Vibe Coding CEDIA 2026 · UTE y UTPL · Solo para uso educativo."},"en":{"idioma":"Language","aviso_titulo":"How your answers will be used","aviso":"This information will only be used to guide the design of an academic proposal for a Mechatronics Engineering program. The form is anonymous: it does not ask for your name, email, ID number, or the name of your company or institution. All ten questions are optional: you may leave any blank, and a blank is never counted as zero. This is a course practice exercise: it does not validate an established psychometric instrument.","reglas_titulo":"How your result is calculated","reglas":"Scale from 1 to 5. Question 10 is scored in reverse (6 minus your answer). The average is calculated only if you answered at least 8 of the 10 questions; with fewer, «insufficient answers» is shown.","opcional":"(optional)","ver":"See my result","resultado":"Your result","pregunta":"Question","invertida":"reversed","orig":"Original answer","punt":"Score (transformed)","sin_resp":"— not answered —","respondidas":"Questions answered","de":"of","promedio":"Average","insuficiente":"Insufficient answers","insuficiente_det":"at least 8 of the 10 questions must be answered to calculate an average.","exportar":"Export","exportar_txt":"You can download your two files, or send them directly by email to the person running this study.","descargar":"Download my files (CSV)","enviar":"Send my results by email","asunto":"Survey results","cuerpo_titulo":"Survey results","orig_titulo":"Original answers","punt_titulo":"Scores (question 10 reversed = 6 - answer)","en_blanco":"(blank)","pie":"Scoring rules version","pie2":"Vibe Coding CEDIA 2026 course · UTE and UTPL · Educational use only."}},"titulo":{"es":"Interés en la carrera de Ingeniería en Mecatrónica","en":"Interest in a Mechatronics Engineering program"},"subtitulo":{"es":"Encuesta para futuros estudiantes de ingeniería","en":"Survey for prospective engineering students"},"items":[{"es":"Me interesa estudiar una ingeniería relacionada con automatización y robótica.","en":"I am interested in studying an engineering degree related to automation and robotics."},{"es":"Me interesa estudiar Ingeniería en Mecatrónica.","en":"I am interested in studying Mechatronics Engineering."},{"es":"Consideraría matricularme en esta carrera si se ofreciera en mi ciudad.","en":"I would consider enrolling in this program if it were offered in my city."},{"es":"Creo que Mecatrónica ofrece buenas oportunidades laborales.","en":"I believe Mechatronics offers good job opportunities."},{"es":"Me atrae la electrónica y la programación aplicadas a máquinas y procesos.","en":"I am drawn to electronics and programming applied to machines and processes."},{"es":"Me interesan el IoT y el mantenimiento inteligente de equipos.","en":"I am interested in IoT and smart maintenance of equipment."},{"es":"Me motiva contribuir a la eficiencia energética en la industria.","en":"I am motivated to contribute to energy efficiency in industry."},{"es":"Recomendaría esta carrera a otras personas.","en":"I would recommend this program to other people."},{"es":"Tengo claro qué hace un ingeniero en Mecatrónica.","en":"I am clear about what a Mechatronics engineer does."},{"es":"Prefiero estudiar una carrera distinta a Mecatrónica.","en":"I prefer to study a program other than Mechatronics."}]};
+  var N = CFG.n_items, MIN = CFG.min_respuestas, INV = CFG.invertidos;
+  var idRegistro = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "reg-" + Date.now() + "-" + Math.floor(Math.random() * 1e5);
+  var ultimo = null;
+  var $ = function (id) { return document.getElementById(id); };
+  var lang = "es";
+
+  function T(k) { return CFG.ui[lang][k]; }
+  function esInv(i) { return INV.indexOf(i) !== -1; }
+
+  // Construcción del formulario (una sola vez); los textos se actualizan al cambiar de idioma.
+  var form = $("encuesta");
+  for (var i = 1; i <= N; i++) {
+    var fs = document.createElement("fieldset");
+    fs.innerHTML = '<legend><span class="q-txt" data-i="' + i + '"></span> <span class="opc q-opc"></span></legend><div class="escala" role="radiogroup"></div>';
+    var cont = fs.querySelector(".escala");
+    for (var v = 1; v <= 5; v++) {
+      var lb = document.createElement("label");
+      lb.innerHTML = '<input type="radio" name="q' + i + '" value="' + v + '"><b>' + v + '</b><span class="e-lab" data-v="' + v + '"></span>';
+      cont.appendChild(lb);
+    }
+    form.appendChild(fs);
+  }
+
+  function pintar() {
+    document.documentElement.lang = lang;
+    document.title = CFG.titulo[lang];
+    $("t-idioma").textContent = T("idioma");
+    $("t-titulo").textContent = CFG.titulo[lang];
+    $("t-sub").textContent = CFG.subtitulo[lang];
+    $("t-aviso-titulo").textContent = T("aviso_titulo");
+    $("t-aviso").textContent = T("aviso");
+    $("t-reglas-titulo").textContent = T("reglas_titulo");
+    $("t-reglas").textContent = T("reglas");
+    document.querySelectorAll(".q-txt").forEach(function (el) {
+      var n = parseInt(el.getAttribute("data-i"), 10);
+      el.textContent = n + ". " + CFG.items[n - 1][lang];
+    });
+    document.querySelectorAll(".q-opc").forEach(function (el) { el.textContent = T("opcional"); });
+    document.querySelectorAll(".e-lab").forEach(function (el) {
+      el.textContent = CFG.escala[lang][parseInt(el.getAttribute("data-v"), 10) - 1];
+    });
+    $("btnCalcular").textContent = T("ver");
+    $("t-resultado").textContent = T("resultado");
+    $("th-preg").textContent = T("pregunta");
+    $("th-orig").textContent = T("orig");
+    $("th-punt").textContent = T("punt");
+    $("t-respondidas").textContent = T("respondidas");
+    $("t-exportar").textContent = T("exportar");
+    $("t-exportar-txt").textContent = T("exportar_txt");
+    $("btnDescargar").textContent = T("descargar");
+    $("btnEnviar").textContent = T("enviar");
+    $("t-pie").textContent = T("pie") + " " + CFG.version_reglas;
+    $("t-pie2").textContent = T("pie2");
+    if (ultimo) { ultimo.idioma = lang; mostrar(ultimo, false); }
+  }
+
+  function marcada(i) {
+    var el = document.querySelector('input[name="q' + i + '"]:checked');
+    return el ? parseInt(el.value, 10) : null;
+  }
+
+  function calcular() {
+    var r = [], p = [];
+    for (var i = 1; i <= N; i++) {
+      var v = marcada(i);
+      r.push(v);
+      p.push(v === null ? null : (esInv(i) ? 6 - v : v));
+    }
+    var vals = p.filter(function (x) { return x !== null; });
+    var n = vals.length;
+    var prom = n >= MIN ? vals.reduce(function (a, b) { return a + b; }, 0) / n : null;
+    return { id: idRegistro, fecha: new Date().toISOString().slice(0, 10), idioma: lang, r: r, p: p, n: n, prom: prom };
+  }
+
+  function mostrar(res, scroll) {
+    var tb = $("filas");
+    tb.innerHTML = "";
+    for (var i = 1; i <= N; i++) {
+      var tr = document.createElement("tr");
+      var o = res.r[i - 1], s = res.p[i - 1];
+      tr.innerHTML = "<td>" + T("pregunta") + " " + i + (esInv(i) ? " (" + T("invertida") + ")" : "") + "</td><td>" + (o === null ? T("sin_resp") : o) + "</td><td>" + (s === null ? "—" : s) + "</td>";
+      tb.appendChild(tr);
+    }
+    $("n-resp").textContent = res.n + " " + T("de") + " " + N;
+    $("linea-prom").innerHTML = res.prom === null
+      ? '<span class="insuf">' + T("insuficiente") + "</span> — " + T("insuficiente_det")
+      : T("promedio") + ': <span class="prom">' + res.prom.toFixed(2) + "</span> / 5";
+    $("resultado").hidden = false;
+    if (scroll) $("resultado").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function esc(v) {
+    if (v === null || v === undefined) return "";
+    var t = String(v);
+    return (t.indexOf(",") !== -1 || t.indexOf('"') !== -1) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function hdr(pref) { var h = []; for (var i = 1; i <= N; i++) h.push(pref + i); return h; }
+  function csvOriginal(x) {
+    return ["id_registro", "fecha", "encuesta", "idioma"].concat(hdr("r")).join(",") + "\n" +
+      [x.id, x.fecha, CFG.clave, x.idioma].concat(x.r).map(esc).join(",") + "\n";
+  }
+  function csvPunt(x) {
+    return ["id_registro", "fecha", "encuesta", "idioma"].concat(hdr("p")).concat(["n_respuestas", "promedio", "version_reglas"]).join(",") + "\n" +
+      [x.id, x.fecha, CFG.clave, x.idioma].concat(x.p).concat([x.n, x.prom === null ? "insuficiente" : x.prom.toFixed(2), CFG.version_reglas]).map(esc).join(",") + "\n";
+  }
+  function bajar(nombre, txt) {
+    var b = new Blob([txt], { type: "text/csv;charset=utf-8;" });
+    var u = URL.createObjectURL(b), a = document.createElement("a");
+    a.href = u; a.download = nombre; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+  }
+  function cuerpo(x) {
+    var bl = T("en_blanco"), L = [T("cuerpo_titulo") + " — " + CFG.clave, "id_registro: " + x.id, "fecha: " + x.fecha, "idioma: " + x.idioma, "", T("orig_titulo") + ":"];
+    x.r.forEach(function (v, i) { L.push("r" + (i + 1) + "=" + (v === null ? bl : v)); });
+    L.push("", T("punt_titulo") + ":");
+    x.p.forEach(function (v, i) { L.push("p" + (i + 1) + "=" + (v === null ? bl : v)); });
+    L.push("n_respuestas=" + x.n, "promedio=" + (x.prom === null ? "insuficiente" : x.prom.toFixed(2)), "version_reglas=" + CFG.version_reglas);
+    return L.join("\n");
+  }
+  function asegurar() { if (!ultimo) { ultimo = calcular(); mostrar(ultimo, true); } }
+
+  document.querySelectorAll('input[name="idioma"]').forEach(function (el) {
+    el.addEventListener("change", function () { lang = el.value; pintar(); });
+  });
+  $("btnCalcular").addEventListener("click", function () { ultimo = calcular(); mostrar(ultimo, true); });
+  $("btnDescargar").addEventListener("click", function () {
+    asegurar();
+    bajar("respuestas_original_" + CFG.clave + "_" + ultimo.fecha + ".csv", csvOriginal(ultimo));
+    bajar("puntuaciones_" + CFG.clave + "_" + ultimo.fecha + ".csv", csvPunt(ultimo));
+  });
+  $("btnEnviar").addEventListener("click", function (ev) {
+    ev.preventDefault(); asegurar();
+    window.location.href = "mailto:" + CFG.correo_destino + "?subject=" + encodeURIComponent(T("asunto") + " " + CFG.clave + " - " + ultimo.id) + "&body=" + encodeURIComponent(cuerpo(ultimo));
+  });
+
+  pintar();
+})();
+</script>
+</body>
+</html>
